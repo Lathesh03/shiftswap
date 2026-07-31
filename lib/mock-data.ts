@@ -1,9 +1,9 @@
 import type { Employee, Shift } from "./types";
 
 export const employees: Employee[] = [
-  { id: "e1", name: "Alice Martin", email: "alice@example.com", position: "Barista", department: "Front of House" },
-  { id: "e2", name: "Bob Chen",    email: "bob@example.com",   position: "Cashier", department: "Front of House" },
-  { id: "e3", name: "Carol Davis", email: "carol@example.com", position: "Cook",    department: "Kitchen" },
+  { id: "e1", name: "Alice Martin", email: "alice@example.com", position: "Barista", department: "Front of House", created_at: "2025-07-01T00:00:00Z" },
+  { id: "e2", name: "Bob Chen",    email: "bob@example.com",   position: "Cashier", department: "Front of House", created_at: "2025-07-01T00:00:00Z" },
+  { id: "e3", name: "Carol Davis", email: "carol@example.com", position: "Cook",    department: "Kitchen", created_at: "2025-07-01T00:00:00Z" },
 ];
 
 export const shifts: Shift[] = [

@@ -4,6 +4,7 @@ export type Employee = {
   email: string;
   position: string;
   department: string;
+  created_at: string; // ISO 8601 format
 };
 
 export const SHIFT_STATUS = ['open','assigned', 'swap_requested'] as const;
