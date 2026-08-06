@@ -35,8 +35,38 @@ const employees: Employee[] = [];
 const shifts: Shift[] = [];
 const e = first<Employee>(employees); //e: Employee | undefined
 
-export type SwapStatus = "pending" | "approved" | "rejected" | "cancelled";
-
-export type Result<T> = 
+export type Result<T> =
     | {ok: true; data: T}
     | {ok: false; error: string};
+
+// The allowed swap statuses, defined once (Week 1 Pattern 2)
+export const SWAP_STATUS = [
+  "requested",
+  "matched",
+  "approved",
+  "applied",
+  "rejected",
+  "cancelled",
+] as const;
+export type SwapStatus = (typeof SWAP_STATUS)[number];
+
+// An event is a "thing that happened" — a discriminated union (Week 1 Pattern 5).
+// The `type` field is the discriminant; each variant carries only its own data.
+export type SwapEvent =
+  | { type: "requested"; shiftId: string; requestedBy: string; at: string }
+  | { type: "matched"; candidateId: string; at: string }
+  | { type: "approved"; approvedBy: string; at: string }
+  | { type: "applied"; at: string }
+  | { type: "rejected"; reason: string; at: string }
+  | { type: "cancelled"; at: string };
+
+// The derived state — computed from events, never stored directly.
+export type SwapState = {
+  status: SwapStatus;
+  shiftId: string | null;
+  requestedBy: string | null;
+  candidateId: string | null;
+  approvedBy: string | null;
+  rejectionReason: string | null;
+  history: SwapEvent[];
+};
