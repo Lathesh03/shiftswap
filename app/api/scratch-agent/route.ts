@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runMatchAgent } from "@/lib/agent/run";
 
+export const maxDuration = 60; // agent loop makes several sequential model calls
+
 export async function GET() {
   const supabase = await createClient();
 
