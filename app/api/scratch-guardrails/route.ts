@@ -110,10 +110,13 @@ export async function GET() {
     const swap3 = await makeSwap(supabase, shift3.id, requester.id);
     createdSwapIds.push(swap3.id);
 
-    // Give both other employees a conflicting shift at the same time.
-    const blockA = await makeShift(supabase, candidateA.id, "2026-09-03");
-    const blockB = await makeShift(supabase, candidateB.id, "2026-09-03");
-    createdShiftIds.push(blockA.id, blockB.id);
+    // Block EVERY other employee in the table at this time — not just the
+    // fixtures we created — so there is genuinely no one left eligible.
+    const { data: allEmployees } = await supabase.from("employees").select("id").neq("id", requester.id);
+    for (const e of allEmployees ?? []) {
+      const block = await makeShift(supabase, e.id, "2026-09-03");
+      createdShiftIds.push(block.id);
+    }
 
     const agentNoCandidates = await runMatchAgent(swap3.id);
     const { data: eventsAfterTest3 } = await supabase
