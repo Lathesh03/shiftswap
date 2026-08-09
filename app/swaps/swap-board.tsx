@@ -117,7 +117,7 @@ export default function SwapBoard({
           </div>
 
           {agentRuns[s.id] && (
-            <details className="text-xs bg-gray-50 rounded p-2 mt-1">
+            <details className="text-xs bg-gray-50 text-gray-900 rounded p-2 mt-1">
               <summary>Agent trace</summary>
               <p className="mb-1 whitespace-pre-wrap">{agentRuns[s.id].finalText}</p>
               <ol className="flex flex-col gap-0.5">
