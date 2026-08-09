@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SwapState, SwapStatus } from "@/lib/types";
+import type { AgentResult } from "@/lib/agent/run";
 
 // Which buttons to show per status (mirrors ALLOWED_TRANSITIONS)
 const ACTIONS: Record<SwapStatus, string[]> = {
@@ -22,6 +23,8 @@ export default function SwapBoard({
   const router = useRouter();
   const [shiftId, setShiftId] = useState("");
   const [requestedBy, setRequestedBy] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [agentRuns, setAgentRuns] = useState<Record<string, AgentResult>>({});
 
   async function createSwap() {
     if (!shiftId || !requestedBy) return;
@@ -47,6 +50,15 @@ export default function SwapBoard({
     });
     if (!res.ok) alert((await res.json()).error); // shows the guard's rejection
     router.refresh();
+  }
+
+  async function aiMatch(id: string) {
+    setBusy(id);
+    const res = await fetch(`/api/swaps/${id}/match`, { method: "POST" });
+    const data = await res.json();
+    setAgentRuns((prev) => ({ ...prev, [id]: data }));
+    setBusy(null);
+    router.refresh(); // reflect the new matched state
   }
 
   return (
@@ -93,7 +105,28 @@ export default function SwapBoard({
                 {a}
               </button>
             ))}
+            {s.status === "requested" && (
+              <button
+                className="border px-3 py-1 rounded text-sm"
+                disabled={busy === s.id}
+                onClick={() => aiMatch(s.id)}
+              >
+                {busy === s.id ? "Thinking…" : "AI match"}
+              </button>
+            )}
           </div>
+
+          {agentRuns[s.id] && (
+            <details className="text-xs bg-gray-50 rounded p-2 mt-1">
+              <summary>Agent trace</summary>
+              <p className="mb-1 whitespace-pre-wrap">{agentRuns[s.id].finalText}</p>
+              <ol className="flex flex-col gap-0.5">
+                {agentRuns[s.id].steps.map((st, i) => (
+                  <li key={i}>{st.tool}({JSON.stringify(st.input)})</li>
+                ))}
+              </ol>
+            </details>
+          )}
         </div>
       ))}
     </div>
