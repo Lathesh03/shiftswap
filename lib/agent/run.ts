@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { findEligibleCandidates, checkLaborRules, proposeMatch } from "./tools";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
+import { findEligibleCandidates, checkLaborRules, proposeMatch, searchPolicies } from "@/lib/scheduling/core";
 
 const MODEL = "claude-opus-5";
 const anthropic = new Anthropic();
@@ -37,14 +39,26 @@ const tools: Anthropic.Tool[] = [
       required: ["swapId", "candidateId"],
     },
   },
+  {
+    name: "search_policies",
+    description:
+      "Search company labor/scheduling policy for text relevant to a question. " +
+      "Use this to justify any decision. Returns the most relevant policy passages with their source.",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "What rule or situation to look up" } },
+      required: ["query"],
+    },
+  },
 ];
 
 // Dispatch a tool call to the guarded implementation.
-async function runTool(name: string, input: Record<string, any>) {
+async function runTool(supabase: SupabaseClient, name: string, input: Record<string, unknown>) {
   switch (name) {
-    case "find_eligible_candidates": return await findEligibleCandidates(input.swapId);
-    case "check_labor_rules":        return await checkLaborRules(input.candidateId, input.swapId);
-    case "propose_match":            return await proposeMatch(input.swapId, input.candidateId);
+    case "find_eligible_candidates": return await findEligibleCandidates(supabase, input.swapId as string);
+    case "check_labor_rules":        return await checkLaborRules(supabase, input.candidateId as string, input.swapId as string);
+    case "propose_match":            return await proposeMatch(supabase, input.swapId as string, input.candidateId as string);
+    case "search_policies":          return await searchPolicies(supabase, input.query as string);
     default:                         return { error: `Unknown tool: ${name}` };
   }
 }
@@ -63,12 +77,18 @@ const SYSTEM = `You are a shift-swap scheduling assistant.
 Given a swap request, find eligible candidates, verify your chosen candidate with
 check_labor_rules, then call propose_match for the best verified candidate.
 Never propose a candidate you have not verified. If no candidate is eligible,
-explain why and do NOT call propose_match.`;
+explain why and do NOT call propose_match.
+
+When you reject a candidate or justify a match, first call search_policies with a
+short query describing the rule in question. Base your reasoning on the returned
+passages and cite the source name in your final explanation (e.g. "per labor_rules:
+overlapping shifts"). Do not invent rules that aren't in the retrieved policy.`;
 
 export type AgentStep = { tool: string; input: unknown; output: unknown };
 export type AgentResult = { finalText: string; steps: AgentStep[] };
 
 export async function runMatchAgent(swapId: string): Promise<AgentResult> {
+  const supabase = await createClient();
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: `Find and propose a match for swap ${swapId}.` },
   ];
@@ -101,7 +121,7 @@ export async function runMatchAgent(swapId: string): Promise<AgentResult> {
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
     for (const block of response.content) {
       if (block.type !== "tool_use") continue;
-      const output = await runTool(block.name, block.input as Record<string, any>);
+      const output = await runTool(supabase, block.name, block.input as Record<string, unknown>);
       steps.push({ tool: block.name, input: block.input, output });
       toolResults.push({
         type: "tool_result",
