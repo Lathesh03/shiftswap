@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { findEligibleCandidates, checkLaborRules, proposeMatch, searchPolicies } from "@/lib/scheduling/core";
+import { runAgentLoop, type AgentResult } from "@/lib/agent/loop";
 
 const MODEL = "claude-opus-5";
 const anthropic = new Anthropic();
@@ -63,16 +64,6 @@ async function runTool(supabase: SupabaseClient, name: string, input: Record<str
   }
 }
 
-// Retry wrapper for transient API failures (network, 429, 529).
-async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i < tries; i++) {
-    try { return await fn(); }
-    catch (err) { lastErr = err; await new Promise((r) => setTimeout(r, 500 * (i + 1))); }
-  }
-  throw lastErr;
-}
-
 const SYSTEM = `You are a shift-swap scheduling assistant.
 Given a swap request, find eligible candidates, verify your chosen candidate with
 check_labor_rules, then call propose_match for the best verified candidate.
@@ -84,53 +75,17 @@ short query describing the rule in question. Base your reasoning on the returned
 passages and cite the source name in your final explanation (e.g. "per labor_rules:
 overlapping shifts"). Do not invent rules that aren't in the retrieved policy.`;
 
-export type AgentStep = { tool: string; input: unknown; output: unknown };
-export type AgentResult = { finalText: string; steps: AgentStep[] };
+export type { AgentStep, AgentResult } from "@/lib/agent/loop";
 
 export async function runMatchAgent(swapId: string): Promise<AgentResult> {
   const supabase = await createClient();
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: `Find and propose a match for swap ${swapId}.` },
-  ];
-  const steps: AgentStep[] = [];
-  const MAX_TURNS = 6; // safety rail: agents must terminate.
-
-  for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const response = await withRetry(() =>
-      anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 4096,
-        system: SYSTEM,
-        tools,
-        messages,
-      })
-    );
-
-    messages.push({ role: "assistant", content: response.content });
-
-    // No tool call — the agent is done; return its text.
-    if (response.stop_reason !== "tool_use") {
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
-      return { finalText: text, steps };
-    }
-
-    // Execute each tool call, collect results, feed them back.
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const block of response.content) {
-      if (block.type !== "tool_use") continue;
-      const output = await runTool(supabase, block.name, block.input as Record<string, unknown>);
-      steps.push({ tool: block.name, input: block.input, output });
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: block.id,
-        content: JSON.stringify(output),
-      });
-    }
-    messages.push({ role: "user", content: toolResults });
-  }
-
-  return { finalText: "Agent stopped: reached max turns.", steps };
+  return runAgentLoop({
+    client: anthropic,
+    model: MODEL,
+    system: SYSTEM,
+    tools,
+    userMessage: `Find and propose a match for swap ${swapId}.`,
+    executeTool: (name, input) => runTool(supabase, name, input),
+    maxTurns: 6,
+  });
 }
