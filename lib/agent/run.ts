@@ -77,8 +77,10 @@ overlapping shifts"). Do not invent rules that aren't in the retrieved policy.`;
 
 export type { AgentStep, AgentResult } from "@/lib/agent/loop";
 
-export async function runMatchAgent(swapId: string): Promise<AgentResult> {
-  const supabase = await createClient();
+// Takes the Supabase client as a parameter rather than creating one, so
+// callers outside a Next.js request (the live-eval harness, seeded with a
+// service-role client) can run the same agent the web app uses.
+export async function runMatchAgentWith(supabase: SupabaseClient, swapId: string): Promise<AgentResult> {
   return runAgentLoop({
     client: anthropic,
     model: MODEL,
@@ -88,4 +90,9 @@ export async function runMatchAgent(swapId: string): Promise<AgentResult> {
     executeTool: (name, input) => runTool(supabase, name, input),
     maxTurns: 6,
   });
+}
+
+export async function runMatchAgent(swapId: string): Promise<AgentResult> {
+  const supabase = await createClient();
+  return runMatchAgentWith(supabase, swapId);
 }
