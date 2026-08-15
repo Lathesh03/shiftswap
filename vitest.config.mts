@@ -8,7 +8,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["**/*.test.ts", "**/*.eval.ts"],
-    setupFiles: ["./evals/live/setup-env.ts"],
+    include: ["**/*.test.ts"],
   },
 });

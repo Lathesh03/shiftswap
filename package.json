@@ -8,10 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run evals/unit",
-    "eval": "vitest run evals/live --testTimeout=60000"
+    "eval": "vitest run evals/live --config vitest.live.config.mts --testTimeout=60000"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
+    "@langfuse/otel": "^5.10.0",
+    "@langfuse/tracing": "^5.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.111.0",
     "next": "16.2.12",

@@ -1,8 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { startActiveObservation } from "@langfuse/tracing";
 import { createClient } from "@/lib/supabase/server";
 import { findEligibleCandidates, checkLaborRules, proposeMatch, searchPolicies } from "@/lib/scheduling/core";
 import { runAgentLoop, type AgentResult } from "@/lib/agent/loop";
+import { tracedClient, tracedExecuteTool } from "@/lib/agent/tracing";
+import { flushTracing } from "@/lib/observability/tracing-init";
 
 const MODEL = "claude-opus-5";
 const anthropic = new Anthropic();
@@ -81,15 +84,31 @@ export type { AgentStep, AgentResult } from "@/lib/agent/loop";
 // callers outside a Next.js request (the live-eval harness, seeded with a
 // service-role client) can run the same agent the web app uses.
 export async function runMatchAgentWith(supabase: SupabaseClient, swapId: string): Promise<AgentResult> {
-  return runAgentLoop({
-    client: anthropic,
-    model: MODEL,
-    system: SYSTEM,
-    tools,
-    userMessage: `Find and propose a match for swap ${swapId}.`,
-    executeTool: (name, input) => runTool(supabase, name, input),
-    maxTurns: 6,
-  });
+  try {
+    return await startActiveObservation("match-agent", async (rootSpan) => {
+      rootSpan.update({ input: { swapId } });
+      try {
+        const result = await runAgentLoop({
+          client: tracedClient(anthropic, rootSpan),
+          model: MODEL,
+          system: SYSTEM,
+          tools,
+          userMessage: `Find and propose a match for swap ${swapId}.`,
+          executeTool: tracedExecuteTool((name, input) => runTool(supabase, name, input), rootSpan),
+          maxTurns: 6,
+        });
+        rootSpan.update({ output: { finalText: result.finalText, toolCalls: result.steps.length } });
+        return result;
+      } catch (err) {
+        rootSpan.update({ level: "ERROR", statusMessage: err instanceof Error ? err.message : String(err) });
+        throw err;
+      }
+    });
+  } finally {
+    // Vercel functions can freeze right after the response is sent, so flush
+    // explicitly rather than trusting a background batch export to finish in time.
+    await flushTracing();
+  }
 }
 
 export async function runMatchAgent(swapId: string): Promise<AgentResult> {
