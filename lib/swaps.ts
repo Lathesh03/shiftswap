@@ -43,7 +43,7 @@ export function deriveState(events: SwapEvent[]): SwapState {
 // Which event types are legal from each status.
 const ALLOWED_TRANSITIONS: Record<SwapStatus, SwapEvent["type"][]> = {
   requested: ["matched", "rejected", "cancelled"],
-  matched: ["approved", "rejected", "cancelled"],
+  matched: ["matched", "approved", "rejected", "cancelled"], // "matched" again = manager override to a different candidate
   approved: ["applied", "rejected", "cancelled"],
   applied: [],   // terminal
   rejected: [],  // terminal

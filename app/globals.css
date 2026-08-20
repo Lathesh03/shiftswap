@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* "The Pass" design system — see Week 6 dashboard mockup for the source direction. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --page: #FAFAFA;
+  --card: #FFFFFF;
+  --card-sunken: #F6F6F7;
+  --border: #ECECEE;
+  --ink: #121214;
+  --ink-muted: #6C6C74;
+  --ink-faint: #A2A1A8;
+  --accent: #E8491C;
+  --accent-ink: #B8340F;
+  --accent-wash: #FDEEE7;
+  --danger: #B0193F;
+  --danger-wash: #FBEAEF;
+  --success: #17825A;
+  --success-wash: #E7F5EE;
+  --focus: #1D5B8A;
+  --shadow-card: 0 1px 2px rgba(18, 18, 20, 0.04), 0 10px 28px rgba(18, 18, 20, 0.07);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-card-sunken: var(--card-sunken);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-wash: var(--accent-wash);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-success: var(--success);
+  --color-success-wash: var(--success-wash);
+  --color-focus: var(--focus);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: #131316;
+    --card: #1C1C20;
+    --card-sunken: #232327;
+    --border: #2C2C31;
+    --ink: #F3F3F5;
+    --ink-muted: #A5A4AC;
+    --ink-faint: #706F78;
+    --accent: #F16A3E;
+    --accent-ink: #FFB699;
+    --accent-wash: #3A2015;
+    --danger: #EA5C82;
+    --danger-wash: #3A1A24;
+    --success: #4FBF8F;
+    --success-wash: #113026;
+    --focus: #6BB3E5;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.35);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

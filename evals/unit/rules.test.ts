@@ -1,7 +1,7 @@
 // Tier 1: deterministic, CI-blocking. No DB, no network, no LLM.
 import { describe, it, expect } from "vitest";
 import { deriveState, assertTransition } from "@/lib/swaps";
-import { overlaps, eligibleCandidates, checkCandidate, type RawShift, type RawEmployee } from "@/lib/scheduling/rules";
+import { overlaps, evaluateCandidates, checkCandidate, type RawShift, type RawEmployee } from "@/lib/scheduling/rules";
 import type { SwapEvent } from "@/lib/types";
 
 describe("state machine (lib/swaps.ts)", () => {
@@ -49,6 +49,22 @@ describe("state machine (lib/swaps.ts)", () => {
     const result = assertTransition([], "matched");
     expect(result.ok).toBe(false);
   });
+
+  it("allows a manager to override a match with a different candidate", () => {
+    const matched: SwapEvent[] = [
+      { type: "requested", shiftId: "s1", requestedBy: "e1", at: "2026-01-01T00:00:00Z" },
+      { type: "matched", candidateId: "e2", at: "2026-01-01T01:00:00Z" },
+    ];
+    const check = assertTransition(matched, "matched");
+    expect(check.ok).toBe(true);
+
+    const overridden = deriveState([
+      ...matched,
+      { type: "matched", candidateId: "e3", at: "2026-01-01T02:00:00Z" },
+    ]);
+    expect(overridden.status).toBe("matched");
+    expect(overridden.candidateId).toBe("e3");
+  });
 });
 
 describe("overlaps()", () => {
@@ -65,7 +81,7 @@ describe("overlaps()", () => {
   });
 });
 
-describe("eligibleCandidates()", () => {
+describe("evaluateCandidates()", () => {
   const shift: RawShift = { id: "shift-1", employee_id: null, starts_at: "2026-01-01T09:00:00Z", ends_at: "2026-01-01T17:00:00Z" };
   const employees: RawEmployee[] = [
     { id: "e1", name: "Requester", position: "Barista", department: "Cafe" },
@@ -76,15 +92,30 @@ describe("eligibleCandidates()", () => {
     { id: "shift-2", employee_id: "e3", starts_at: "2026-01-01T10:00:00Z", ends_at: "2026-01-01T18:00:00Z" },
   ];
 
-  it("excludes the requester", () => {
-    const result = eligibleCandidates(shift, employees, allShifts, "e1");
-    expect(result.map((e) => e.id)).not.toContain("e1");
+  it("excludes the requester, with a reason", () => {
+    const result = evaluateCandidates(shift, employees, allShifts, "e1");
+    const requester = result.find((e) => e.id === "e1")!;
+    expect(requester.eligible).toBe(false);
+    expect(requester.reasons).toContain("Candidate is the requester.");
   });
 
-  it("excludes anyone with an overlapping shift", () => {
-    const result = eligibleCandidates(shift, employees, allShifts, "e1");
-    expect(result.map((e) => e.id)).not.toContain("e3");
-    expect(result.map((e) => e.id)).toContain("e2");
+  it("excludes anyone with an overlapping shift, with a reason", () => {
+    const result = evaluateCandidates(shift, employees, allShifts, "e1");
+    const busy = result.find((e) => e.id === "e3")!;
+    expect(busy.eligible).toBe(false);
+    expect(busy.reasons).toContain("Candidate already works an overlapping shift.");
+  });
+
+  it("marks a free, unrelated candidate eligible with no reasons", () => {
+    const result = evaluateCandidates(shift, employees, allShifts, "e1");
+    const free = result.find((e) => e.id === "e2")!;
+    expect(free.eligible).toBe(true);
+    expect(free.reasons).toHaveLength(0);
+  });
+
+  it("returns every employee, not just the eligible ones", () => {
+    const result = evaluateCandidates(shift, employees, allShifts, "e1");
+    expect(result).toHaveLength(employees.length);
   });
 });
 

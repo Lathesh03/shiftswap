@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AddEmployee from "./add-employee";
 import SignOut from "./sign-out";
@@ -21,6 +22,11 @@ export default async function Home() {
         <h1 className="text-2xl font-semibold">Team</h1>
         <SignOut />
       </div>
+      <nav className="flex gap-4 text-sm">
+        <Link href="/dashboard" className="text-focus font-medium">Manager dashboard →</Link>
+        <Link href="/shifts" className="text-focus font-medium">Shifts</Link>
+        <Link href="/swaps" className="text-focus font-medium">Swaps</Link>
+      </nav>
       <AddEmployee />
       <ul className="flex flex-col gap-2">
         {employees?.map((e) => (

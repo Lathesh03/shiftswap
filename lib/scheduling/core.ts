@@ -1,10 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertTransition, deriveState, rowToEvent } from "@/lib/swaps";
 import { embedQuery } from "@/lib/embeddings";
-import { eligibleCandidates, checkCandidate } from "@/lib/scheduling/rules";
+import { evaluateCandidates, checkCandidate } from "@/lib/scheduling/rules";
+
+type CandidateSummary = { id: string; name: string; position: string; department: string };
+
+export type EligibilityResult =
+  | { error: string }
+  | {
+      shift: { id: string; starts_at: string; ends_at: string };
+      eligible: CandidateSummary[];
+      excluded: (CandidateSummary & { reasons: string[] })[];
+    };
 
 // TOOL 1 (read-only): who could take this swap's shift?
-export async function findEligibleCandidates(supabase: SupabaseClient, swapId: string) {
+export async function findEligibleCandidates(supabase: SupabaseClient, swapId: string): Promise<EligibilityResult> {
   const { data: rows } = await supabase
     .from("swap_events").select("*").eq("swap_id", swapId)
     .order("created_at", { ascending: true });
@@ -14,14 +24,20 @@ export async function findEligibleCandidates(supabase: SupabaseClient, swapId: s
   const { data: shift } = await supabase
     .from("shifts").select("*").eq("id", state.shiftId).single();
 
-  const { data: employees } = await supabase
-    .from("employees").select("*").neq("id", state.requestedBy ?? "");
+  // Fetch every employee (not just non-requesters) so the requester can be
+  // reported as excluded-with-reason below, instead of silently missing.
+  const { data: employees } = await supabase.from("employees").select("*");
   const { data: allShifts } = await supabase.from("shifts").select("*");
 
-  const eligible = eligibleCandidates(shift, employees ?? [], allShifts ?? [], state.requestedBy)
+  const evaluated = evaluateCandidates(shift, employees ?? [], allShifts ?? [], state.requestedBy);
+  const eligible = evaluated
+    .filter((e) => e.eligible)
     .map((e) => ({ id: e.id, name: e.name, position: e.position, department: e.department }));
+  const excluded = evaluated
+    .filter((e) => !e.eligible)
+    .map((e) => ({ id: e.id, name: e.name, position: e.position, department: e.department, reasons: e.reasons }));
 
-  return { shift: { id: shift.id, starts_at: shift.starts_at, ends_at: shift.ends_at }, eligible };
+  return { shift: { id: shift.id, starts_at: shift.starts_at, ends_at: shift.ends_at }, eligible, excluded };
 }
 
 // TOOL 2 (read-only): may THIS candidate take the shift? Returns reasons.
