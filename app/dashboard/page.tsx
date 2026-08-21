@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSwapsWithContext } from "@/lib/dashboard";
 import SwapRow from "./swap-row";
+import LiveRefresh from "./live-refresh";
+import AgentHealth from "./agent-health";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -22,6 +24,7 @@ export default async function Dashboard() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10 space-y-10">
+      <LiveRefresh />
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-ink text-balance">{headline}</h1>
         <p className="mt-2 max-w-prose text-ink-muted">
@@ -84,6 +87,8 @@ export default async function Dashboard() {
           </ul>
         )}
       </section>
+
+      <AgentHealth />
     </main>
   );
 }

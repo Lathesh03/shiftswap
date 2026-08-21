@@ -55,7 +55,7 @@ export default function DecisionCard({
             {considered.excluded.map((c) => (
               <div
                 key={c.id}
-                className="flex items-baseline justify-between gap-3 rounded-lg bg-card-sunken px-3 py-2 text-sm opacity-75"
+                className="flex flex-col gap-0.5 rounded-lg bg-card-sunken px-3 py-2 text-sm opacity-75 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
               >
                 <span className="font-medium text-ink">{c.name}</span>
                 <span className="text-xs text-danger">{c.reasons.join("; ")}</span>
